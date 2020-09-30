@@ -13,7 +13,7 @@ from ophyd.log import config_ophyd_logging
 
 class ScreenShot(DetectorBase):
     cam = Cpt(CamBase, ':CAM:')
-    image = Cpt(ImagePlugin, ':CAM:DATA1:')
+    image = Cpt(ImagePlugin, ':CAM:IMAGE1:')
     bit_depth = Cpt(EpicsSignalRO, ':CAM:BitsPerPixel_RBV')
 
     def __init__(self, *args, **kwargs):
@@ -24,13 +24,19 @@ class ScreenShot(DetectorBase):
 def get_image(screenshot):
     # Set type based on bit depth
     bit_depth = screenshot.bit_depth.get()
-    image = screenshot.image.image
+    #image = screenshot.image.image
+    array_data = screenshot.image.array_data.get()
+    image = np.array(array_data).reshape((512, 2048))
+    print(image.max())
+    print(image)
     if bit_depth <= 8:
         # Use 8-bit pixels
-        return (image * 2**8/image.max()).astype(np.uint8)
+        image = image.astype(np.uint8)
+        return (2**8/image.max() * image).astype(np.uint8)
     else:
         # Use 16-bit pixels
-        return (image * 2**16/image.max()).astype(np.uint16)
+        image = image.astype(np.uint16)
+        return (2**16/2**bit_depth * image).astype(np.uint16)
 
 
 def main(pvbase, filename):
@@ -43,6 +49,8 @@ def main(pvbase, filename):
         time.sleep(0.25)
         print('Getting image')
         image = get_image(screenshot)
+        print(image.max())
+        print(image)
     except Exception:
         raise
     finally:
